@@ -64,3 +64,4 @@ MEMORY.md
 *.ico
 !web/favicon.png
 !web/icons/*.png
+!assets/profil.jpg

@@ -598,17 +598,15 @@ class _HeroSection extends StatelessWidget {
       height: 120,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [_accent, _accentGreen],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
         boxShadow: [BoxShadow(color: _accent.withOpacity(0.3), blurRadius: 30)],
       ),
-      child: const Center(
-        child: Text('FK',
-            style: TextStyle(
-                color: Colors.white, fontSize: 36, fontWeight: FontWeight.w700, letterSpacing: 2)),
+      child: ClipOval(
+        child: Image.asset(
+          'assets/profil.jpg',
+          width: 120,
+          height: 120,
+          fit: BoxFit.cover,
+        ),
       ),
     );
   }
