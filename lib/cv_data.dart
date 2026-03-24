@@ -146,8 +146,8 @@ class TechItem {
 const sharedProjects = [
   ProjectItem(
     name: 'CryptoApp',
-    description: 'Mobilná aplikácia pre sledovanie kryptomien — live ceny, grafy a prehľad portfólia.',
-    tags: ['Flutter', 'Dart', 'API'],
+    description: 'Webová aplikácia pre sledovanie kryptomien — live ceny, grafy a prehľad portfólia.',
+    tags: ['Angular', 'TypeScript', 'Firebase'],
     githubUrl: 'https://github.com/Artyfak/CryptoApp',
   ),
   ProjectItem(
@@ -167,8 +167,8 @@ const sharedProjects = [
 const sharedProjectsEN = [
   ProjectItem(
     name: 'CryptoApp',
-    description: 'Mobile app for tracking cryptocurrencies — live prices, charts and portfolio overview.',
-    tags: ['Flutter', 'Dart', 'API'],
+    description: 'Web app for tracking cryptocurrencies — live prices, charts and portfolio overview.',
+    tags: ['Angular', 'TypeScript', 'Firebase'],
     githubUrl: 'https://github.com/Artyfak/CryptoApp',
   ),
   ProjectItem(
