@@ -1,17 +1,40 @@
-# cv_filip
+# Filip Konštiak — CV Web App
 
-A new Flutter project.
+Interactive personal CV built with Flutter Web. Features a modern dark UI, Slovak/English language toggle, smooth animations, and a PDF export that generates a clean 2-page document.
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+✦ Dark mode UI with accent colors and animated transitions
+✦ Slovak / English language switching
+✦ Scroll progress bar and typing effect in the header
+✦ PDF export — 2-page layout generated entirely in the browser
+✦ Sections: Experience, Education, Projects, Tech Stack, Languages, Soft Skills, Social Networks, Volunteering, Certificates, References
 
-A few resources to get you started if this is your first Flutter project:
+## Tech Stack
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Flutter · Dart · pdf · printing · google_fonts · animate_do
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Run Locally
+
+```bash
+flutter pub get
+flutter run -d chrome
+```
+
+## Build for Web
+
+```bash
+flutter build web
+```
+
+## Project Structure
+
+```
+lib/
+  main.dart          — app entry point
+  cv_page.dart       — full CV layout and all UI sections
+  cv_data.dart       — data models and CV content (SK + EN)
+  pdf_generator.dart — PDF export logic
+web/
+  index.html         — print media CSS and Flutter bootstrap
+```
