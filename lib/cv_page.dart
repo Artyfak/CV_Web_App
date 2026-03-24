@@ -1,24 +1,50 @@
+import 'dart:async';
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'cv_data.dart';
 
+// ─── THEME PROVIDER ───────────────────────────────────────────────────────────
+
+class _CVTheme extends InheritedWidget {
+  final bool isDark;
+  const _CVTheme({required this.isDark, required super.child});
+  static bool of(BuildContext ctx) =>
+      ctx.dependOnInheritedWidgetOfExactType<_CVTheme>()!.isDark;
+  @override
+  bool updateShouldNotify(_CVTheme old) => isDark != old.isDark;
+}
+
+// ─── COLORS ───────────────────────────────────────────────────────────────────
+
 const _accent = Color(0xFF7C6FF7);
 const _accentGreen = Color(0xFF00D4AA);
-const _cardBg = Color(0xFF14141E);
-const _surfaceBg = Color(0xFF0A0A0F);
-const _textPrimary = Color(0xFFF0F0F8);
-const _textSecondary = Color(0xFF8B8BA0);
-const _border = Color(0xFF22223A);
+
+Color _cardBg(BuildContext ctx) =>
+    _CVTheme.of(ctx) ? const Color(0xFF14141E) : Colors.white;
+Color _surfaceBg(BuildContext ctx) =>
+    _CVTheme.of(ctx) ? const Color(0xFF0A0A0F) : const Color(0xFFF4F4FA);
+Color _textPrimary(BuildContext ctx) =>
+    _CVTheme.of(ctx) ? const Color(0xFFF0F0F8) : const Color(0xFF0D0D1A);
+Color _textSecondary(BuildContext ctx) =>
+    _CVTheme.of(ctx) ? const Color(0xFF8B8BA0) : const Color(0xFF6B6B85);
+Color _borderClr(BuildContext ctx) =>
+    _CVTheme.of(ctx) ? const Color(0xFF22223A) : const Color(0xFFE0E0EE);
+
+// ─── CV PAGE ──────────────────────────────────────────────────────────────────
 
 class CVPage extends StatefulWidget {
   final bool isSlovak;
+  final bool isDark;
   final VoidCallback onToggleLanguage;
+  final VoidCallback onToggleTheme;
 
   const CVPage({
     super.key,
     required this.isSlovak,
+    required this.isDark,
     required this.onToggleLanguage,
+    required this.onToggleTheme,
   });
 
   @override
@@ -28,6 +54,8 @@ class CVPage extends StatefulWidget {
 class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
+  late ScrollController _scrollCtrl;
+  double _scrollProgress = 0;
 
   @override
   void initState() {
@@ -37,12 +65,18 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
       duration: const Duration(milliseconds: 400),
     )..forward();
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    _scrollCtrl = ScrollController()
+      ..addListener(() {
+        final max = _scrollCtrl.position.maxScrollExtent;
+        if (max > 0) setState(() => _scrollProgress = _scrollCtrl.offset / max);
+      });
   }
 
   @override
   void didUpdateWidget(CVPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isSlovak != widget.isSlovak) {
+    if (oldWidget.isSlovak != widget.isSlovak ||
+        oldWidget.isDark != widget.isDark) {
       _fadeCtrl.reset();
       _fadeCtrl.forward();
     }
@@ -51,46 +85,67 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
   @override
   void dispose() {
     _fadeCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final cv = widget.isSlovak ? cvSK : cvEN;
-    final width = MediaQuery.of(context).size.width;
-    final isWide = width > 900;
+    final isWide = MediaQuery.of(context).size.width > 900;
 
-    return Scaffold(
-      backgroundColor: _surfaceBg,
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: Stack(
-          children: [
-            _buildBackground(),
-            CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1100),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isWide ? 48 : 20,
-                          vertical: 40,
+    return _CVTheme(
+      isDark: widget.isDark,
+      child: Scaffold(
+        backgroundColor: _surfaceBg(context),
+        body: FadeTransition(
+          opacity: _fadeAnim,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(painter: _BgPainter(isDark: widget.isDark)),
+              ),
+              // ── Scroll progress bar ──
+              Positioned(
+                top: 0, left: 0, right: 0,
+                child: SizedBox(
+                  height: 3,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: _scrollProgress,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(colors: [_accent, _accentGreen]),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _HeroSection(cv: cv),
-                            const SizedBox(height: 48),
-                            if (isWide)
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: Column(
-                                      children: [
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              CustomScrollView(
+                controller: _scrollCtrl,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            isWide ? 48 : 20, 48, isWide ? 48 : 20, 40,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _HeroSection(cv: cv, isSlovak: widget.isSlovak),
+                              const SizedBox(height: 48),
+                              if (isWide)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: Column(children: [
                                         _ProjectsSection(cv: cv),
                                         const SizedBox(height: 32),
                                         _ExperienceSection(cv: cv),
@@ -98,31 +153,25 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
                                         _EducationSection(cv: cv),
                                         const SizedBox(height: 32),
                                         _VolunteeringSection(cv: cv),
-                                      ],
+                                      ]),
                                     ),
-                                  ),
-                                  const SizedBox(width: 32),
-                                  SizedBox(
-                                    width: 320,
-                                    child: Column(
-                                      children: [
+                                    const SizedBox(width: 32),
+                                    SizedBox(
+                                      width: 320,
+                                      child: Column(children: [
                                         _TechStackSection(cv: cv),
-                                        const SizedBox(height: 32),
-                                        _SkillsSection(cv: cv),
                                         const SizedBox(height: 32),
                                         _LanguagesSection(cv: cv),
                                         const SizedBox(height: 32),
                                         _InterestsSection(cv: cv),
                                         const SizedBox(height: 32),
                                         _CertificatesSection(cv: cv),
-                                      ],
+                                      ]),
                                     ),
-                                  ),
-                                ],
-                              )
-                            else
-                              Column(
-                                children: [
+                                  ],
+                                )
+                              else
+                                Column(children: [
                                   _ProjectsSection(cv: cv),
                                   const SizedBox(height: 32),
                                   _TechStackSection(cv: cv),
@@ -131,8 +180,6 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
                                   const SizedBox(height: 32),
                                   _EducationSection(cv: cv),
                                   const SizedBox(height: 32),
-                                  _SkillsSection(cv: cv),
-                                  const SizedBox(height: 32),
                                   _LanguagesSection(cv: cv),
                                   const SizedBox(height: 32),
                                   _InterestsSection(cv: cv),
@@ -140,31 +187,27 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
                                   _VolunteeringSection(cv: cv),
                                   const SizedBox(height: 32),
                                   _CertificatesSection(cv: cv),
-                                ],
-                              ),
-                            const SizedBox(height: 60),
-                            _Footer(isSlovak: widget.isSlovak),
-                          ],
+                                ]),
+                              const SizedBox(height: 60),
+                              _Footer(isSlovak: widget.isSlovak),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            _LangToggle(
-              isSlovak: widget.isSlovak,
-              onToggle: widget.onToggleLanguage,
-            ),
-          ],
+                ],
+              ),
+              _TopControls(
+                isSlovak: widget.isSlovak,
+                isDark: widget.isDark,
+                onToggleLanguage: widget.onToggleLanguage,
+                onToggleTheme: widget.onToggleTheme,
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _buildBackground() {
-    return Positioned.fill(
-      child: CustomPaint(painter: _BgPainter()),
     );
   }
 }
@@ -172,61 +215,98 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
 // ─── BACKGROUND PAINTER ───────────────────────────────────────────────────────
 
 class _BgPainter extends CustomPainter {
+  final bool isDark;
+  const _BgPainter({required this.isDark});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-    paint.color = const Color(0xFF7C6FF7).withOpacity(0.04);
-    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.1), 380, paint);
-    paint.color = const Color(0xFF00D4AA).withOpacity(0.03);
-    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.6), 300, paint);
-    paint.color = const Color(0xFF7C6FF7).withOpacity(0.03);
-    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.9), 250, paint);
+    final p = Paint()..style = PaintingStyle.fill;
+    p.color = const Color(0xFF7C6FF7).withOpacity(isDark ? 0.04 : 0.06);
+    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.1), 380, p);
+    p.color = const Color(0xFF00D4AA).withOpacity(isDark ? 0.03 : 0.05);
+    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.6), 300, p);
+    p.color = const Color(0xFF7C6FF7).withOpacity(isDark ? 0.03 : 0.04);
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.9), 250, p);
   }
 
   @override
-  bool shouldRepaint(_) => false;
+  bool shouldRepaint(_BgPainter old) => old.isDark != isDark;
 }
 
-// ─── LANGUAGE TOGGLE ─────────────────────────────────────────────────────────
+// ─── TOP CONTROLS ─────────────────────────────────────────────────────────────
 
-class _LangToggle extends StatelessWidget {
+class _TopControls extends StatelessWidget {
   final bool isSlovak;
-  final VoidCallback onToggle;
+  final bool isDark;
+  final VoidCallback onToggleLanguage;
+  final VoidCallback onToggleTheme;
 
-  const _LangToggle({required this.isSlovak, required this.onToggle});
+  const _TopControls({
+    required this.isSlovak,
+    required this.isDark,
+    required this.onToggleLanguage,
+    required this.onToggleTheme,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      top: 24,
-      right: 24,
-      child: GestureDetector(
-        onTap: onToggle,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          decoration: BoxDecoration(
-            color: _cardBg,
-            borderRadius: BorderRadius.circular(50),
-            border: Border.all(color: _border, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: _accent.withOpacity(0.15),
-                blurRadius: 20,
-                spreadRadius: 0,
+      top: 16, right: 16,
+      child: Row(
+        children: [
+          // Theme toggle
+          GestureDetector(
+            onTap: onToggleTheme,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _cardBg(context),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _borderClr(context)),
+                  boxShadow: [
+                    BoxShadow(color: _accent.withOpacity(0.12), blurRadius: 16),
+                  ],
+                ),
+                child: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: isDark ? const Color(0xFFFACC15) : _accent,
+                  size: 18,
+                ),
               ),
-            ],
+            ),
           ),
-          padding: const EdgeInsets.all(4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _LangBtn(label: 'SK', flag: '🇸🇰', active: isSlovak),
-              const SizedBox(width: 4),
-              _LangBtn(label: 'EN', flag: '🇬🇧', active: !isSlovak),
-            ],
+          const SizedBox(width: 10),
+          // Language toggle
+          GestureDetector(
+            onTap: onToggleLanguage,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                decoration: BoxDecoration(
+                  color: _cardBg(context),
+                  borderRadius: BorderRadius.circular(50),
+                  border: Border.all(color: _borderClr(context)),
+                  boxShadow: [
+                    BoxShadow(color: _accent.withOpacity(0.12), blurRadius: 16),
+                  ],
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _LangBtn(label: 'SK', flag: '🇸🇰', active: isSlovak),
+                    const SizedBox(width: 4),
+                    _LangBtn(label: 'EN', flag: '🇬🇧', active: !isSlovak),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -236,14 +316,12 @@ class _LangBtn extends StatelessWidget {
   final String label;
   final String flag;
   final bool active;
-
   const _LangBtn({required this.label, required this.flag, required this.active});
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: active ? _accent : Colors.transparent,
@@ -254,17 +332,122 @@ class _LangBtn extends StatelessWidget {
         children: [
           Text(flag, style: const TextStyle(fontSize: 14)),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: active ? Colors.white : _textSecondary,
-              letterSpacing: 0.5,
-            ),
-          ),
+          Text(label,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: active ? Colors.white : _textSecondary(context),
+                letterSpacing: 0.5,
+              )),
         ],
       ),
+    );
+  }
+}
+
+// ─── TYPING TEXT ──────────────────────────────────────────────────────────────
+
+class _TypingText extends StatefulWidget {
+  final List<String> texts;
+  final TextStyle style;
+  const _TypingText({required this.texts, required this.style});
+
+  @override
+  State<_TypingText> createState() => _TypingTextState();
+}
+
+class _TypingTextState extends State<_TypingText> {
+  String _displayed = '';
+  int _textIndex = 0;
+  int _charIndex = 0;
+  bool _deleting = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _schedule(const Duration(milliseconds: 600));
+  }
+
+  void _schedule(Duration d) {
+    _timer?.cancel();
+    _timer = Timer(d, _tick);
+  }
+
+  void _tick() {
+    if (!mounted) return;
+    final target = widget.texts[_textIndex];
+
+    if (!_deleting) {
+      if (_charIndex < target.length) {
+        _charIndex++;
+        setState(() => _displayed = target.substring(0, _charIndex));
+        _schedule(const Duration(milliseconds: 80));
+      } else {
+        _deleting = true;
+        _schedule(const Duration(milliseconds: 1800));
+      }
+    } else {
+      if (_charIndex > 0) {
+        _charIndex--;
+        setState(() => _displayed = target.substring(0, _charIndex));
+        _schedule(const Duration(milliseconds: 45));
+      } else {
+        _deleting = false;
+        _textIndex = (_textIndex + 1) % widget.texts.length;
+        _schedule(const Duration(milliseconds: 400));
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(_displayed, style: widget.style),
+        _BlinkCursor(),
+      ],
+    );
+  }
+}
+
+class _BlinkCursor extends StatefulWidget {
+  @override
+  State<_BlinkCursor> createState() => _BlinkCursorState();
+}
+
+class _BlinkCursorState extends State<_BlinkCursor>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _ctrl,
+      child: const Text('|',
+          style: TextStyle(color: _accent, fontWeight: FontWeight.w300, fontSize: 20)),
     );
   }
 }
@@ -273,7 +456,8 @@ class _LangBtn extends StatelessWidget {
 
 class _HeroSection extends StatelessWidget {
   final CVStrings cv;
-  const _HeroSection({required this.cv});
+  final bool isSlovak;
+  const _HeroSection({required this.cv, required this.isSlovak});
 
   @override
   Widget build(BuildContext context) {
@@ -282,14 +466,13 @@ class _HeroSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(40),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: _cardBg(context),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _border),
+        border: Border.all(color: _borderClr(context)),
         boxShadow: [
           BoxShadow(
             color: _accent.withOpacity(0.08),
             blurRadius: 60,
-            spreadRadius: 0,
             offset: const Offset(0, 20),
           ),
         ],
@@ -298,22 +481,17 @@ class _HeroSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isWide)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _heroText()),
-                const SizedBox(width: 32),
-                _avatar(),
-              ],
-            )
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: _heroText(context)),
+              const SizedBox(width: 32),
+              _avatar(),
+            ])
           else
-            Column(
-              children: [
-                Center(child: _avatar()),
-                const SizedBox(height: 24),
-                _heroText(),
-              ],
-            ),
+            Column(children: [
+              Center(child: _avatar()),
+              const SizedBox(height: 24),
+              _heroText(context),
+            ]),
           const SizedBox(height: 32),
           _divider(),
           const SizedBox(height: 24),
@@ -323,7 +501,11 @@ class _HeroSection extends StatelessWidget {
     );
   }
 
-  Widget _heroText() {
+  Widget _heroText(BuildContext context) {
+    final typingTexts = isSlovak
+        ? ['Developer', 'IT Študent', 'Muzikant', 'Paddleboarder', 'Šachista']
+        : ['Developer', 'IT Student', 'Musician', 'Paddleboarder', 'Chess Player'];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -332,18 +514,18 @@ class _HeroSection extends StatelessWidget {
           style: GoogleFonts.spaceGrotesk(
             fontSize: 52,
             fontWeight: FontWeight.w700,
-            color: _textPrimary,
+            color: _textPrimary(context),
             height: 1.1,
             letterSpacing: -1,
           ),
         ),
         const SizedBox(height: 8),
-        _GradientText(
-          text: 'Software Developer & IT Student',
+        _TypingText(
+          texts: typingTexts,
           style: GoogleFonts.inter(
             fontSize: 18,
             fontWeight: FontWeight.w500,
-            letterSpacing: 0.3,
+            color: _accent,
           ),
         ),
         const SizedBox(height: 20),
@@ -357,7 +539,7 @@ class _HeroSection extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.format_quote_rounded, color: _accent, size: 20),
+              const Icon(Icons.format_quote_rounded, color: _accent, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -368,19 +550,14 @@ class _HeroSection extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontStyle: FontStyle.italic,
-                        color: _textPrimary.withOpacity(0.9),
+                        color: _textPrimary(context).withOpacity(0.9),
                         height: 1.5,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      cv.quoteAuthor,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: _accent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    Text(cv.quoteAuthor,
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: _accent, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -389,6 +566,8 @@ class _HeroSection extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         _ProfileChips(cv: cv),
+        const SizedBox(height: 20),
+        _DownloadButton(isSlovak: isSlovak),
       ],
     );
   }
@@ -404,24 +583,12 @@ class _HeroSection extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: _accent.withOpacity(0.3),
-            blurRadius: 30,
-            spreadRadius: 0,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: _accent.withOpacity(0.3), blurRadius: 30)],
       ),
       child: const Center(
-        child: Text(
-          'FK',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 36,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 2,
-          ),
-        ),
+        child: Text('FK',
+            style: TextStyle(
+                color: Colors.white, fontSize: 36, fontWeight: FontWeight.w700, letterSpacing: 2)),
       ),
     );
   }
@@ -429,12 +596,12 @@ class _HeroSection extends StatelessWidget {
   Widget _divider() {
     return Container(
       height: 1,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [
             Colors.transparent,
-            _accent.withOpacity(0.4),
-            _accentGreen.withOpacity(0.4),
+            Color(0x667C6FF7),
+            Color(0x6600D4AA),
             Colors.transparent,
           ],
         ),
@@ -444,12 +611,11 @@ class _HeroSection extends StatelessWidget {
 
   Widget _contactRow(BuildContext context) {
     final items = [
-      _ContactItem(Icons.cake_outlined, '07.03.2000'),
-      _ContactItem(Icons.location_on_outlined, 'Žilina, Slovensko'),
-      _ContactItem(Icons.email_outlined, 'filip.konstiak@gmail.com'),
-      _ContactItem(Icons.phone_outlined, '+421 904 271 405'),
+      _CD(Icons.cake_outlined, '07.03.2000'),
+      _CD(Icons.location_on_outlined, 'Žilina, Slovensko'),
+      _CD(Icons.email_outlined, 'filip.konstiak@gmail.com'),
+      _CD(Icons.phone_outlined, '+421 904 271 405'),
     ];
-
     return Wrap(
       spacing: 16,
       runSpacing: 12,
@@ -459,13 +625,8 @@ class _HeroSection extends StatelessWidget {
                 children: [
                   Icon(i.icon, size: 16, color: _accent),
                   const SizedBox(width: 6),
-                  Text(
-                    i.text,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: _textSecondary,
-                    ),
-                  ),
+                  Text(i.text,
+                      style: GoogleFonts.inter(fontSize: 13, color: _textSecondary(context))),
                 ],
               ))
           .toList(),
@@ -473,11 +634,66 @@ class _HeroSection extends StatelessWidget {
   }
 }
 
-class _ContactItem {
+class _CD {
   final IconData icon;
   final String text;
-  _ContactItem(this.icon, this.text);
+  _CD(this.icon, this.text);
 }
+
+// ─── DOWNLOAD BUTTON ──────────────────────────────────────────────────────────
+
+class _DownloadButton extends StatefulWidget {
+  final bool isSlovak;
+  const _DownloadButton({required this.isSlovak});
+
+  @override
+  State<_DownloadButton> createState() => _DownloadButtonState();
+}
+
+class _DownloadButtonState extends State<_DownloadButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = widget.isSlovak ? 'Stiahnuť CV' : 'Download CV';
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () => html.window.print(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: _hovered ? [_accentGreen, _accent] : [_accent, _accentGreen],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: _accent.withOpacity(_hovered ? 0.4 : 0.2),
+                blurRadius: _hovered ? 20 : 10,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.download_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Text(label,
+                  style: GoogleFonts.inter(
+                      fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── PROFILE CHIPS ────────────────────────────────────────────────────────────
 
 class _ProfileChips extends StatelessWidget {
   final CVStrings cv;
@@ -497,14 +713,9 @@ class _ProfileChips extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: _accentGreen.withOpacity(0.25)),
                 ),
-                child: Text(
-                  t.trim(),
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: _accentGreen,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                child: Text(t.trim(),
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: _accentGreen, fontWeight: FontWeight.w500)),
               ))
           .toList(),
     );
@@ -517,21 +728,16 @@ class _SectionCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final Widget child;
-
-  const _SectionCard({
-    required this.title,
-    required this.icon,
-    required this.child,
-  });
+  const _SectionCard({required this.title, required this.icon, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: _cardBg(context),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
+        border: Border.all(color: _borderClr(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,7 +759,7 @@ class _SectionCard extends StatelessWidget {
                   style: GoogleFonts.spaceGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: _textSecondary,
+                    color: _textSecondary(context),
                     letterSpacing: 1.5,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -584,10 +790,7 @@ class _ExperienceSection extends StatelessWidget {
         children: cv.experience
             .asMap()
             .entries
-            .map((e) => _TimelineItem(
-                  item: e.value,
-                  isLast: e.key == cv.experience.length - 1,
-                ))
+            .map((e) => _TimelineItem(item: e.value, isLast: e.key == cv.experience.length - 1))
             .toList(),
       ),
     );
@@ -597,7 +800,6 @@ class _ExperienceSection extends StatelessWidget {
 class _TimelineItem extends StatelessWidget {
   final ExperienceItem item;
   final bool isLast;
-
   const _TimelineItem({required this.item, required this.isLast});
 
   @override
@@ -611,24 +813,17 @@ class _TimelineItem extends StatelessWidget {
             child: Column(
               children: [
                 Container(
-                  width: 12,
-                  height: 12,
+                  width: 12, height: 12,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _accent,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _accent.withOpacity(0.5),
-                        blurRadius: 6,
-                      ),
-                    ],
+                    shape: BoxShape.circle, color: _accent,
+                    boxShadow: [BoxShadow(color: _accent.withOpacity(0.5), blurRadius: 6)],
                   ),
                 ),
                 if (!isLast)
                   Expanded(
                     child: Container(
                       width: 1,
-                      color: _border,
+                      color: _borderClr(context),
                       margin: const EdgeInsets.only(top: 4),
                     ),
                   ),
@@ -642,52 +837,29 @@ class _TimelineItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.role,
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary,
-                    ),
-                  ),
+                  Text(item.role,
+                      style: GoogleFonts.inter(
+                          fontSize: 16, fontWeight: FontWeight.w600, color: _textPrimary(context))),
                   const SizedBox(height: 2),
-                  Text(
-                    item.company,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: _accent,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  Text(item.company,
+                      style: GoogleFonts.inter(
+                          fontSize: 13, color: _accent, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 6),
-                  Text(
-                    item.description,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: _textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
+                  Text(item.description,
+                      style: GoogleFonts.inter(
+                          fontSize: 13, color: _textSecondary(context), height: 1.5)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_outlined,
-                          size: 12, color: _textSecondary),
+                      Icon(Icons.calendar_today_outlined, size: 12, color: _textSecondary(context)),
                       const SizedBox(width: 4),
-                      Text(
-                        item.period,
-                        style: GoogleFonts.inter(
-                            fontSize: 12, color: _textSecondary),
-                      ),
+                      Text(item.period,
+                          style: GoogleFonts.inter(fontSize: 12, color: _textSecondary(context))),
                       const SizedBox(width: 12),
-                      Icon(Icons.location_on_outlined,
-                          size: 12, color: _textSecondary),
+                      Icon(Icons.location_on_outlined, size: 12, color: _textSecondary(context)),
                       const SizedBox(width: 4),
-                      Text(
-                        item.location,
-                        style: GoogleFonts.inter(
-                            fontSize: 12, color: _textSecondary),
-                      ),
+                      Text(item.location,
+                          style: GoogleFonts.inter(fontSize: 12, color: _textSecondary(context))),
                     ],
                   ),
                 ],
@@ -715,10 +887,7 @@ class _EducationSection extends StatelessWidget {
         children: cv.education
             .asMap()
             .entries
-            .map((e) => _EduItem(
-                  item: e.value,
-                  isLast: e.key == cv.education.length - 1,
-                ))
+            .map((e) => _EduItem(item: e.value, isLast: e.key == cv.education.length - 1))
             .toList(),
       ),
     );
@@ -728,7 +897,6 @@ class _EducationSection extends StatelessWidget {
 class _EduItem extends StatelessWidget {
   final EducationItem item;
   final bool isLast;
-
   const _EduItem({required this.item, required this.isLast});
 
   @override
@@ -742,24 +910,17 @@ class _EduItem extends StatelessWidget {
             child: Column(
               children: [
                 Container(
-                  width: 12,
-                  height: 12,
+                  width: 12, height: 12,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _accentGreen,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _accentGreen.withOpacity(0.5),
-                        blurRadius: 6,
-                      ),
-                    ],
+                    shape: BoxShape.circle, color: _accentGreen,
+                    boxShadow: [BoxShadow(color: _accentGreen.withOpacity(0.5), blurRadius: 6)],
                   ),
                 ),
                 if (!isLast)
                   Expanded(
                     child: Container(
                       width: 1,
-                      color: _border,
+                      color: _borderClr(context),
                       margin: const EdgeInsets.only(top: 4),
                     ),
                   ),
@@ -773,122 +934,29 @@ class _EduItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.school,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: _textPrimary,
-                    ),
-                  ),
+                  Text(item.school,
+                      style: GoogleFonts.inter(
+                          fontSize: 15, fontWeight: FontWeight.w600, color: _textPrimary(context))),
                   const SizedBox(height: 2),
-                  Text(
-                    item.degree,
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: _accentGreen,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  Text(item.degree,
+                      style: GoogleFonts.inter(
+                          fontSize: 13, color: _accentGreen, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_outlined,
-                          size: 12, color: _textSecondary),
+                      Icon(Icons.calendar_today_outlined, size: 12, color: _textSecondary(context)),
                       const SizedBox(width: 4),
                       Text(item.period,
-                          style: GoogleFonts.inter(
-                              fontSize: 12, color: _textSecondary)),
+                          style: GoogleFonts.inter(fontSize: 12, color: _textSecondary(context))),
                       const SizedBox(width: 12),
-                      Icon(Icons.location_on_outlined,
-                          size: 12, color: _textSecondary),
+                      Icon(Icons.location_on_outlined, size: 12, color: _textSecondary(context)),
                       const SizedBox(width: 4),
                       Text(item.location,
-                          style: GoogleFonts.inter(
-                              fontSize: 12, color: _textSecondary)),
+                          style: GoogleFonts.inter(fontSize: 12, color: _textSecondary(context))),
                     ],
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── SKILLS ───────────────────────────────────────────────────────────────────
-
-class _SkillsSection extends StatelessWidget {
-  final CVStrings cv;
-  const _SkillsSection({required this.cv});
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: cv.skillsTitle,
-      icon: Icons.code_rounded,
-      child: Column(
-        children: cv.programmingSkills
-            .map((s) => _SkillBar(skill: s))
-            .toList(),
-      ),
-    );
-  }
-}
-
-class _SkillBar extends StatelessWidget {
-  final SkillItem skill;
-  const _SkillBar({required this.skill});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  skill.name,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _textPrimary,
-                  ),
-                ),
-              ),
-              Row(
-                children: List.generate(
-                  5,
-                  (i) => Container(
-                    width: 8,
-                    height: 8,
-                    margin: EdgeInsets.only(left: i == 0 ? 0 : 4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i < skill.level
-                          ? _accent
-                          : _accent.withOpacity(0.15),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: skill.level / 5,
-              backgroundColor: _accent.withOpacity(0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                _accent.withOpacity(0.8),
-              ),
-              minHeight: 4,
             ),
           ),
         ],
@@ -908,9 +976,7 @@ class _LanguagesSection extends StatelessWidget {
     return _SectionCard(
       title: cv.languagesTitle,
       icon: Icons.language_rounded,
-      child: Column(
-        children: cv.languages.map((l) => _LangItem(item: l)).toList(),
-      ),
+      child: Column(children: cv.languages.map((l) => _LangItem(item: l)).toList()),
     );
   }
 }
@@ -929,21 +995,11 @@ class _LangItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.language,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _textPrimary,
-                  ),
-                ),
-                Text(
-                  item.label,
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    color: _textSecondary,
-                  ),
-                ),
+                Text(item.language,
+                    style: GoogleFonts.inter(
+                        fontSize: 14, fontWeight: FontWeight.w600, color: _textPrimary(context))),
+                Text(item.label,
+                    style: GoogleFonts.inter(fontSize: 11, color: _textSecondary(context))),
               ],
             ),
           ),
@@ -954,28 +1010,20 @@ class _LangItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: _accent.withOpacity(0.3)),
             ),
-            child: Text(
-              item.level,
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: _accent,
-              ),
-            ),
+            child: Text(item.level,
+                style: GoogleFonts.spaceGrotesk(
+                    fontSize: 12, fontWeight: FontWeight.w700, color: _accent)),
           ),
           const SizedBox(width: 12),
           Row(
             children: List.generate(
               6,
               (i) => Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(left: 3),
+                width: 8, height: 8,
+                margin: EdgeInsets.only(left: i == 0 ? 0 : 3),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: i < item.dots
-                      ? _accentGreen
-                      : _accentGreen.withOpacity(0.12),
+                  color: i < item.dots ? _accentGreen : _accentGreen.withOpacity(0.12),
                 ),
               ),
             ),
@@ -1001,21 +1049,15 @@ class _InterestsSection extends StatelessWidget {
         spacing: 8,
         runSpacing: 8,
         children: cv.interests
-            .map((interest) => Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            .map((i) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _surfaceBg,
+                    color: _surfaceBg(context),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _border),
+                    border: Border.all(color: _borderClr(context)),
                   ),
-                  child: Text(
-                    interest,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: _textSecondary,
-                    ),
-                  ),
+                  child: Text(i,
+                      style: GoogleFonts.inter(fontSize: 12, color: _textSecondary(context))),
                 ))
             .toList(),
       ),
@@ -1042,34 +1084,24 @@ class _VolunteeringSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        width: 6,
-                        height: 6,
+                        width: 6, height: 6,
                         margin: const EdgeInsets.only(top: 6),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _accentGreen,
-                        ),
+                        decoration: const BoxDecoration(
+                            shape: BoxShape.circle, color: _accentGreen),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              v.role,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: _textPrimary,
-                              ),
-                            ),
-                            Text(
-                              v.organization,
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: _textSecondary,
-                              ),
-                            ),
+                            Text(v.role,
+                                style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: _textPrimary(context))),
+                            Text(v.organization,
+                                style: GoogleFonts.inter(
+                                    fontSize: 12, color: _textSecondary(context))),
                           ],
                         ),
                       ),
@@ -1097,15 +1129,10 @@ class _CertificatesSection extends StatelessWidget {
         children: cv.certificates
             .map((c) => Row(
                   children: [
-                    Icon(Icons.verified_outlined, size: 16, color: _accent),
+                    const Icon(Icons.verified_outlined, size: 16, color: _accent),
                     const SizedBox(width: 10),
-                    Text(
-                      c,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: _textPrimary,
-                      ),
-                    ),
+                    Text(c,
+                        style: GoogleFonts.inter(fontSize: 14, color: _textPrimary(context))),
                   ],
                 ))
             .toList(),
@@ -1114,7 +1141,7 @@ class _CertificatesSection extends StatelessWidget {
   }
 }
 
-// ─── PROJECTS ────────────────────────────────────────────────────────────────
+// ─── PROJECTS ─────────────────────────────────────────────────────────────────
 
 class _ProjectsSection extends StatelessWidget {
   final CVStrings cv;
@@ -1162,15 +1189,9 @@ class _ProjectCardState extends State<_ProjectCard> {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withOpacity(0.35)),
       ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: color,
-          letterSpacing: 0.8,
-        ),
-      ),
+      child: Text(label,
+          style: GoogleFonts.inter(
+              fontSize: 10, fontWeight: FontWeight.w700, color: color, letterSpacing: 0.8)),
     );
   }
 
@@ -1186,80 +1207,68 @@ class _ProjectCardState extends State<_ProjectCard> {
         child: GestureDetector(
           onTap: clickable ? _openUrl : null,
           child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _hovered ? _accent.withOpacity(0.06) : _surfaceBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _hovered ? _accent.withOpacity(0.35) : _border,
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _hovered ? _accent.withOpacity(0.06) : _surfaceBg(context),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: _hovered ? _accent.withOpacity(0.35) : _borderClr(context)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.code_rounded, size: 16, color: _accent),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(widget.item.name,
+                                style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textPrimary(context))),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (widget.item.wip)
+                      _badge('WIP', const Color(0xFFF59E0B))
+                    else if (widget.item.onRequest)
+                      _badge('Na vyžiadanie', const Color(0xFF00D4AA))
+                    else if (clickable)
+                      const Icon(Icons.open_in_new_rounded, size: 16, color: _accent),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(widget.item.description,
+                    style: GoogleFonts.inter(
+                        fontSize: 13, color: _textSecondary(context), height: 1.5)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: widget.item.tags
+                      .map((tag) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: _accent.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(tag,
+                                style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    color: _accent,
+                                    fontWeight: FontWeight.w500)),
+                          ))
+                      .toList(),
+                ),
+              ],
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(Icons.code_rounded, size: 16, color: _accent),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            widget.item.name,
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: _textPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (widget.item.wip)
-                    _badge('WIP', const Color(0xFFF59E0B))
-                  else if (widget.item.onRequest)
-                    _badge('Na vyžiadanie', const Color(0xFF00D4AA))
-                  else if (widget.item.githubUrl != null)
-                    Icon(Icons.open_in_new_rounded, size: 16, color: _textSecondary),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.item.description,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: _textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: widget.item.tags
-                    .map((tag) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: _accent.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            tag,
-                            style: GoogleFonts.inter(
-                              fontSize: 11,
-                              color: _accent,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ],
-          ),
-        ),
         ),
       ),
     );
@@ -1279,7 +1288,7 @@ class _TechStackSection extends StatelessWidget {
       icon: Icons.layers_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: cv.techStack.map((cat) => _TechCategoryRow(category: cat)).toList(),
+        children: cv.techStack.map((c) => _TechCategoryRow(category: c)).toList(),
       ),
     );
   }
@@ -1301,7 +1310,7 @@ class _TechCategoryRow extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: _textSecondary.withOpacity(0.6),
+              color: _textSecondary(context).withOpacity(0.6),
               letterSpacing: 1.5,
             ),
           ),
@@ -1309,7 +1318,7 @@ class _TechCategoryRow extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: category.items.map((item) => _TechBadge(item: item)).toList(),
+            children: category.items.map((i) => _TechBadge(item: i)).toList(),
           ),
         ],
       ),
@@ -1341,39 +1350,27 @@ class _TechBadgeState extends State<_TechBadge> {
           color: _hovered ? color.withOpacity(0.15) : color.withOpacity(0.07),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: _hovered ? color.withOpacity(0.5) : color.withOpacity(0.2),
-          ),
+              color: _hovered ? color.withOpacity(0.5) : color.withOpacity(0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 22,
-              height: 22,
+              width: 22, height: 22,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(6),
-              ),
+                  color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
               child: Center(
-                child: Text(
-                  widget.item.symbol,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                  ),
-                ),
+                child: Text(widget.item.symbol,
+                    style: TextStyle(
+                        fontSize: 9, fontWeight: FontWeight.w800, color: color)),
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              widget.item.name,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: _hovered ? color : _textPrimary,
-              ),
-            ),
+            Text(widget.item.name,
+                style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _hovered ? color : _textPrimary(context))),
           ],
         ),
       ),
@@ -1395,32 +1392,8 @@ class _Footer extends StatelessWidget {
             ? '© 2026 Filip Konštiak • Vytvorené vo Flutter'
             : '© 2026 Filip Konštiak • Built with Flutter',
         style: GoogleFonts.inter(
-          fontSize: 12,
-          color: _textSecondary.withOpacity(0.5),
-        ),
+            fontSize: 12, color: _textSecondary(context).withOpacity(0.5)),
       ),
-    );
-  }
-}
-
-// ─── GRADIENT TEXT ────────────────────────────────────────────────────────────
-
-class _GradientText extends StatelessWidget {
-  final String text;
-  final TextStyle style;
-
-  const _GradientText({required this.text, required this.style});
-
-  @override
-  Widget build(BuildContext context) {
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => const LinearGradient(
-        colors: [_accent, _accentGreen],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      ).createShader(bounds),
-      child: Text(text, style: style),
     );
   }
 }

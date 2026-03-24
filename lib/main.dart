@@ -15,6 +15,7 @@ class CVApp extends StatefulWidget {
 
 class _CVAppState extends State<CVApp> {
   bool _isSlovak = true;
+  bool _isDark = true;
 
   @override
   Widget build(BuildContext context) {
@@ -22,19 +23,21 @@ class _CVAppState extends State<CVApp> {
       title: 'Filip Konštiak — CV',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0A0A0F),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF7C6FF7),
-          secondary: Color(0xFF00D4AA),
-          surface: Color(0xFF12121A),
+        brightness: _isDark ? Brightness.dark : Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF7C6FF7),
+          brightness: _isDark ? Brightness.dark : Brightness.light,
         ),
-        textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+        textTheme: GoogleFonts.interTextTheme(
+          _isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
+        ),
         useMaterial3: true,
       ),
       home: CVPage(
         isSlovak: _isSlovak,
+        isDark: _isDark,
         onToggleLanguage: () => setState(() => _isSlovak = !_isSlovak),
+        onToggleTheme: () => setState(() => _isDark = !_isDark),
       ),
     );
   }
