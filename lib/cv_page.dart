@@ -1154,6 +1154,26 @@ class _ProjectCardState extends State<_ProjectCard> {
     html.window.open(url, '_blank');
   }
 
+  Widget _badge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final clickable = widget.item.githubUrl != null;
@@ -1199,23 +1219,9 @@ class _ProjectCardState extends State<_ProjectCard> {
                     ),
                   ),
                   if (widget.item.wip)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        'WIP',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFF59E0B),
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    )
+                    _badge('WIP', const Color(0xFFF59E0B))
+                  else if (widget.item.onRequest)
+                    _badge('Na vyžiadanie', const Color(0xFF00D4AA))
                   else if (widget.item.githubUrl != null)
                     Icon(Icons.open_in_new_rounded, size: 16, color: _textSecondary),
                 ],

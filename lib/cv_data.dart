@@ -116,6 +116,7 @@ class ProjectItem {
   final List<String> tags;
   final String? githubUrl;
   final bool wip;
+  final bool onRequest;
 
   const ProjectItem({
     required this.name,
@@ -123,6 +124,7 @@ class ProjectItem {
     required this.tags,
     this.githubUrl,
     this.wip = false,
+    this.onRequest = false,
   });
 }
 
@@ -157,10 +159,10 @@ const sharedProjects = [
     githubUrl: 'https://github.com/Artyfak',
   ),
   ProjectItem(
-    name: 'Projekt #3',
-    description: 'Sem príde popis tvojho ďalšieho projektu. Doplň neskôr.',
-    tags: ['Java'],
-    wip: true,
+    name: 'Email Service',
+    description: 'Emailová služba postavená na ASP.NET s MVC architektúrou. Zdrojový kód dostupný na vyžiadanie.',
+    tags: ['C#', 'ASP.NET', 'MVC'],
+    onRequest: true,
   ),
 ];
 
@@ -178,10 +180,10 @@ const sharedProjectsEN = [
     githubUrl: 'https://github.com/Artyfak',
   ),
   ProjectItem(
-    name: 'Project #3',
-    description: 'Description of your next project goes here. Fill in later.',
-    tags: ['Java'],
-    wip: true,
+    name: 'Email Service',
+    description: 'Email service built on ASP.NET with MVC architecture. Source code available upon request.',
+    tags: ['C#', 'ASP.NET', 'MVC'],
+    onRequest: true,
   ),
 ];
 
