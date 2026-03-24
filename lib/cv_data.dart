@@ -23,6 +23,12 @@ class CVStrings {
   final List<TechCategory> techStack;
   final String quote;
   final String quoteAuthor;
+  final String softSkillsTitle;
+  final String socialTitle;
+  final String referencesTitle;
+  final List<String> softSkills;
+  final List<SocialItem> socialLinks;
+  final List<ReferenceItem> references;
 
   const CVStrings({
     required this.profileTitle,
@@ -49,6 +55,12 @@ class CVStrings {
     required this.techStack,
     required this.quote,
     required this.quoteAuthor,
+    required this.softSkillsTitle,
+    required this.socialTitle,
+    required this.referencesTitle,
+    required this.softSkills,
+    required this.socialLinks,
+    required this.references,
   });
 }
 
@@ -143,7 +155,40 @@ class TechItem {
   const TechItem({required this.name, required this.colorHex, required this.symbol});
 }
 
+class SocialItem {
+  final String name;
+  final String url;
+  final String symbol;
+  final int colorHex;
+
+  const SocialItem({
+    required this.name,
+    required this.url,
+    required this.symbol,
+    required this.colorHex,
+  });
+}
+
+class ReferenceItem {
+  final String name;
+  final String role;
+  final String organization;
+  final String? contact;
+
+  const ReferenceItem({
+    required this.name,
+    required this.role,
+    required this.organization,
+    this.contact,
+  });
+}
+
 // ─── SHARED DATA (language-independent) ──────────────────────────────────────
+
+const sharedSocialLinks = [
+  SocialItem(name: 'GitHub', url: 'https://github.com/Artyfak', symbol: 'Gh', colorHex: 0xFF7C6FF7),
+  SocialItem(name: 'LinkedIn', url: 'https://linkedin.com/in/filip-konstiak', symbol: 'in', colorHex: 0xFF0077B5),
+];
 
 const sharedProjects = [
   ProjectItem(
@@ -204,10 +249,11 @@ const sharedTechStack = [
     TechItem(name: 'PostgreSQL', colorHex: 0xFF336791, symbol: 'Pg'),
   ]),
   TechCategory(label: 'Tools', items: [
-    TechItem(name: 'Docker',     colorHex: 0xFF2496ED, symbol: 'Dk'),
-    TechItem(name: 'Git',        colorHex: 0xFFF05032, symbol: 'Gt'),
-    TechItem(name: 'VS Code',    colorHex: 0xFF007ACC, symbol: 'VS'),
-    TechItem(name: 'IntelliJ',   colorHex: 0xFFFF318C, symbol: 'IJ'),
+    TechItem(name: 'Docker',      colorHex: 0xFF2496ED, symbol: 'Dk'),
+    TechItem(name: 'Git',         colorHex: 0xFFF05032, symbol: 'Gt'),
+    TechItem(name: 'VS Code',     colorHex: 0xFF007ACC, symbol: 'VS'),
+    TechItem(name: 'IntelliJ',    colorHex: 0xFFFF318C, symbol: 'IJ'),
+    TechItem(name: 'Claude Code', colorHex: 0xFFD97757, symbol: 'Cl'),
   ]),
 ];
 
@@ -292,6 +338,26 @@ const cvSK = CVStrings(
   certificates: [
     'Vodičský preukaz sk. B',
   ],
+  softSkillsTitle: 'Soft Skills',
+  socialTitle: 'Sociálne siete',
+  referencesTitle: 'Referencie',
+  softSkills: [
+    'Tímová spolupráca',
+    'Komunikatívnosť',
+    'Analytické myslenie',
+    'Rýchle učenie',
+    'Riešenie problémov',
+    'Adaptabilita',
+  ],
+  socialLinks: sharedSocialLinks,
+  references: [
+    ReferenceItem(
+      name: 'Martin Hikánik',
+      role: 'Nadriadený',
+      organization: 'MŠK Žilina',
+      contact: 'K dispozícii na vyžiadanie',
+    ),
+  ],
 );
 
 // ─── ENGLISH ──────────────────────────────────────────────────────────────────
@@ -374,5 +440,25 @@ const cvEN = CVStrings(
   ],
   certificates: [
     'Driver\'s Licence — Category B',
+  ],
+  softSkillsTitle: 'Soft Skills',
+  socialTitle: 'Social Networks',
+  referencesTitle: 'References',
+  softSkills: [
+    'Team Collaboration',
+    'Communication',
+    'Analytical Thinking',
+    'Fast Learner',
+    'Problem Solving',
+    'Adaptability',
+  ],
+  socialLinks: sharedSocialLinks,
+  references: [
+    ReferenceItem(
+      name: 'Martin Hikánik',
+      role: 'Supervisor',
+      organization: 'MŠK Žilina',
+      contact: 'Available upon request',
+    ),
   ],
 );

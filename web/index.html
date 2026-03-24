@@ -31,6 +31,63 @@
 
   <title>cv_filip</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    @media print {
+      @page { margin: 10mm; size: A4; }
+      html, body {
+        background: white !important;
+        height: auto !important;
+        overflow: visible !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      flt-glass-pane {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+      }
+      flt-scene-host {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+      }
+      flt-scene {
+        height: auto !important;
+        overflow: visible !important;
+      }
+      canvas {
+        height: auto !important;
+      }
+    }
+  </style>
+  <script>
+    function expandForPrint() {
+      ['flt-glass-pane', 'flt-scene-host', 'flt-scene'].forEach(function(sel) {
+        var el = document.querySelector(sel);
+        if (el) {
+          el.setAttribute('data-ph', el.style.height || '');
+          el.setAttribute('data-po', el.style.overflow || '');
+          el.setAttribute('data-pp', el.style.position || '');
+          el.style.height = 'auto';
+          el.style.overflow = 'visible';
+          el.style.position = 'static';
+        }
+      });
+    }
+    function restoreAfterPrint() {
+      ['flt-glass-pane', 'flt-scene-host', 'flt-scene'].forEach(function(sel) {
+        var el = document.querySelector(sel);
+        if (el) {
+          el.style.height = el.getAttribute('data-ph') || '';
+          el.style.overflow = el.getAttribute('data-po') || '';
+          el.style.position = el.getAttribute('data-pp') || '';
+        }
+      });
+    }
+    window.addEventListener('beforeprint', expandForPrint);
+    window.addEventListener('afterprint', restoreAfterPrint);
+  </script>
 </head>
 <body>
   <!--

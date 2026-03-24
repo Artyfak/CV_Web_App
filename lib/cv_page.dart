@@ -3,6 +3,7 @@ import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'cv_data.dart';
+import 'pdf_generator.dart';
 
 // ─── THEME PROVIDER ───────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
   late ScrollController _scrollCtrl;
-  double _scrollProgress = 0;
+  final _scrollProgress = ValueNotifier<double>(0);
 
   @override
   void initState() {
@@ -68,7 +69,7 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
     _scrollCtrl = ScrollController()
       ..addListener(() {
         final max = _scrollCtrl.position.maxScrollExtent;
-        if (max > 0) setState(() => _scrollProgress = _scrollCtrl.offset / max);
+        if (max > 0) _scrollProgress.value = _scrollCtrl.offset / max;
       });
   }
 
@@ -86,7 +87,13 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
   void dispose() {
     _fadeCtrl.dispose();
     _scrollCtrl.dispose();
+    _scrollProgress.dispose();
     super.dispose();
+  }
+
+  Future<void> _printPdf() async {
+    final cv = widget.isSlovak ? cvSK : cvEN;
+    await generateAndPrintCV(cv);
   }
 
   @override
@@ -96,7 +103,7 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
 
     return _CVTheme(
       isDark: widget.isDark,
-      child: Scaffold(
+      child: Builder(builder: (context) => Scaffold(
         backgroundColor: _surfaceBg(context),
         body: FadeTransition(
           opacity: _fadeAnim,
@@ -104,24 +111,6 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
             children: [
               Positioned.fill(
                 child: CustomPaint(painter: _BgPainter(isDark: widget.isDark)),
-              ),
-              // ── Scroll progress bar ──
-              Positioned(
-                top: 0, left: 0, right: 0,
-                child: SizedBox(
-                  height: 3,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: _scrollProgress,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(colors: [_accent, _accentGreen]),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               ),
               CustomScrollView(
                 controller: _scrollCtrl,
@@ -139,7 +128,8 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
                             children: [
                               _HeroSection(cv: cv, isSlovak: widget.isSlovak),
                               const SizedBox(height: 48),
-                              if (isWide)
+                              if (isWide) ...[
+                                // ── Zóna 1: hlavné 2 stĺpce ──
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -152,7 +142,7 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
                                         const SizedBox(height: 32),
                                         _EducationSection(cv: cv),
                                         const SizedBox(height: 32),
-                                        _VolunteeringSection(cv: cv),
+                                        _SocialSection(cv: cv),
                                       ]),
                                     ),
                                     const SizedBox(width: 32),
@@ -165,12 +155,15 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
                                         const SizedBox(height: 32),
                                         _InterestsSection(cv: cv),
                                         const SizedBox(height: 32),
-                                        _CertificatesSection(cv: cv),
+                                        _SoftSkillsSection(cv: cv),
                                       ]),
                                     ),
                                   ],
-                                )
-                              else
+                                ),
+                                // ── Zóna 2: spodný pás cez celú šírku ──
+                                const SizedBox(height: 32),
+                                _BottomStrip(cv: cv),
+                              ] else
                                 Column(children: [
                                   _ProjectsSection(cv: cv),
                                   const SizedBox(height: 32),
@@ -180,15 +173,23 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
                                   const SizedBox(height: 32),
                                   _EducationSection(cv: cv),
                                   const SizedBox(height: 32),
+                                  _SocialSection(cv: cv),
+                                  const SizedBox(height: 32),
                                   _LanguagesSection(cv: cv),
                                   const SizedBox(height: 32),
                                   _InterestsSection(cv: cv),
                                   const SizedBox(height: 32),
+                                  _SoftSkillsSection(cv: cv),
+                                  const SizedBox(height: 32),
                                   _VolunteeringSection(cv: cv),
                                   const SizedBox(height: 32),
                                   _CertificatesSection(cv: cv),
+                                  const SizedBox(height: 32),
+                                  _ReferencesSection(cv: cv),
                                 ]),
-                              const SizedBox(height: 60),
+                              const SizedBox(height: 48),
+                              Center(child: _DownloadButton(isSlovak: widget.isSlovak, onPrint: _printPdf)),
+                              const SizedBox(height: 32),
                               _Footer(isSlovak: widget.isSlovak),
                             ],
                           ),
@@ -204,10 +205,31 @@ class _CVPageState extends State<CVPage> with SingleTickerProviderStateMixin {
                 onToggleLanguage: widget.onToggleLanguage,
                 onToggleTheme: widget.onToggleTheme,
               ),
+              // ── Scroll progress bar — on top of everything ──
+              Positioned(
+                top: 0, left: 0, right: 0,
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _scrollProgress,
+                  builder: (_, progress, __) => SizedBox(
+                    height: 3,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FractionallySizedBox(
+                        widthFactor: progress,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(colors: [_accent, _accentGreen]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }
@@ -566,8 +588,6 @@ class _HeroSection extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         _ProfileChips(cv: cv),
-        const SizedBox(height: 20),
-        _DownloadButton(isSlovak: isSlovak),
       ],
     );
   }
@@ -644,7 +664,8 @@ class _CD {
 
 class _DownloadButton extends StatefulWidget {
   final bool isSlovak;
-  const _DownloadButton({required this.isSlovak});
+  final VoidCallback onPrint;
+  const _DownloadButton({required this.isSlovak, required this.onPrint});
 
   @override
   State<_DownloadButton> createState() => _DownloadButtonState();
@@ -661,7 +682,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () => html.window.print(),
+        onTap: widget.onPrint,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1069,7 +1090,7 @@ class _InterestsSection extends StatelessWidget {
 
 class _VolunteeringSection extends StatelessWidget {
   final CVStrings cv;
-  const _VolunteeringSection({required this.cv});
+  const _VolunteeringSection({super.key, required this.cv});
 
   @override
   Widget build(BuildContext context) {
@@ -1078,8 +1099,10 @@ class _VolunteeringSection extends StatelessWidget {
       icon: Icons.volunteer_activism_outlined,
       child: Column(
         children: cv.volunteering
-            .map((v) => Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
+            .asMap()
+            .entries
+            .map((e) => Padding(
+                  padding: EdgeInsets.only(bottom: e.key == cv.volunteering.length - 1 ? 0 : 14),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1094,12 +1117,12 @@ class _VolunteeringSection extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(v.role,
+                            Text(e.value.role,
                                 style: GoogleFonts.inter(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                     color: _textPrimary(context))),
-                            Text(v.organization,
+                            Text(e.value.organization,
                                 style: GoogleFonts.inter(
                                     fontSize: 12, color: _textSecondary(context))),
                           ],
@@ -1131,8 +1154,10 @@ class _CertificatesSection extends StatelessWidget {
                   children: [
                     const Icon(Icons.verified_outlined, size: 16, color: _accent),
                     const SizedBox(width: 10),
-                    Text(c,
-                        style: GoogleFonts.inter(fontSize: 14, color: _textPrimary(context))),
+                    Expanded(
+                      child: Text(c,
+                          style: GoogleFonts.inter(fontSize: 14, color: _textPrimary(context))),
+                    ),
                   ],
                 ))
             .toList(),
@@ -1374,6 +1399,308 @@ class _TechBadgeState extends State<_TechBadge> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── SOFT SKILLS ──────────────────────────────────────────────────────────────
+
+class _SoftSkillsSection extends StatelessWidget {
+  final CVStrings cv;
+  const _SoftSkillsSection({required this.cv});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: cv.softSkillsTitle,
+      icon: Icons.psychology_outlined,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: cv.softSkills
+            .map((s) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _accent.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _accent.withOpacity(0.2)),
+                  ),
+                  child: Text(s,
+                      style: GoogleFonts.inter(
+                          fontSize: 12, color: _accent, fontWeight: FontWeight.w500)),
+                ))
+            .toList(),
+      ),
+    );
+  }
+}
+
+// ─── SOCIAL NETWORKS ──────────────────────────────────────────────────────────
+
+class _SocialSection extends StatelessWidget {
+  final CVStrings cv;
+  const _SocialSection({required this.cv});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: cv.socialTitle,
+      icon: Icons.share_outlined,
+      child: Row(
+        children: cv.socialLinks
+            .asMap()
+            .entries
+            .map((e) => Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                        right: e.key < cv.socialLinks.length - 1 ? 12 : 0),
+                    child: _SocialLink(item: e.value, isLast: true),
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _SocialLink extends StatefulWidget {
+  final SocialItem item;
+  final bool isLast;
+  const _SocialLink({required this.item, required this.isLast});
+
+  @override
+  State<_SocialLink> createState() => _SocialLinkState();
+}
+
+class _SocialLinkState extends State<_SocialLink> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(widget.item.colorHex);
+    return Padding(
+      padding: EdgeInsets.only(bottom: widget.isLast ? 0 : 10),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: () => html.window.open(widget.item.url, '_blank'),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: _hovered ? color.withOpacity(0.1) : _surfaceBg(context),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: _hovered ? color.withOpacity(0.4) : _borderClr(context)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      widget.item.symbol,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: color),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.item.name,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: _hovered ? color : _textPrimary(context),
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.open_in_new_rounded,
+                  size: 14,
+                  color: _hovered ? color : _textSecondary(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── REFERENCES ───────────────────────────────────────────────────────────────
+
+class _ReferencesSection extends StatelessWidget {
+  final CVStrings cv;
+  const _ReferencesSection({required this.cv});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: cv.referencesTitle,
+      icon: Icons.people_outline_rounded,
+      child: Column(
+        children: cv.references
+            .asMap()
+            .entries
+            .map((e) => _ReferenceCard(item: e.value, isLast: e.key == cv.references.length - 1))
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _ReferenceCard extends StatelessWidget {
+  final ReferenceItem item;
+  final bool isLast;
+  const _ReferenceCard({required this.item, required this.isLast});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _surfaceBg(context),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _borderClr(context)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [_accent, _accentGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  item.name.split(' ').map((w) => w[0]).take(2).join(),
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.name,
+                      style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: _textPrimary(context))),
+                  const SizedBox(height: 2),
+                  Text(item.role,
+                      style: GoogleFonts.inter(
+                          fontSize: 12, color: _accent, fontWeight: FontWeight.w500)),
+                  Text(item.organization,
+                      style: GoogleFonts.inter(fontSize: 12, color: _textSecondary(context))),
+                  if (item.contact != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, size: 12, color: _accentGreen),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(item.contact!,
+                              style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  color: _accentGreen,
+                                  fontStyle: FontStyle.italic)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── BOTTOM STRIP (equal height via post-frame measurement) ───────────────────
+
+class _BottomStrip extends StatefulWidget {
+  final CVStrings cv;
+  const _BottomStrip({required this.cv});
+
+  @override
+  State<_BottomStrip> createState() => _BottomStripState();
+}
+
+class _BottomStripState extends State<_BottomStrip> {
+  double? _height;
+  final _volKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _measure();
+  }
+
+  @override
+  void didUpdateWidget(_BottomStrip old) {
+    super.didUpdateWidget(old);
+    if (old.cv != widget.cv) _measure();
+  }
+
+  void _measure() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final h = _volKey.currentContext?.size?.height;
+      if (h != null && h != _height) setState(() => _height = h);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Volunteering — prirodzená výška, meriame ju
+        Expanded(
+          child: _VolunteeringSection(key: _volKey, cv: widget.cv),
+        ),
+        const SizedBox(width: 32),
+        // Certificates — natiahnuté na výšku Dobrovoľníctva
+        Expanded(
+          child: SizedBox(
+            height: _height,
+            child: _CertificatesSection(cv: widget.cv),
+          ),
+        ),
+        const SizedBox(width: 32),
+        // References — natiahnuté na výšku Dobrovoľníctva
+        Expanded(
+          child: SizedBox(
+            height: _height,
+            child: _ReferencesSection(cv: widget.cv),
+          ),
+        ),
+      ],
     );
   }
 }
